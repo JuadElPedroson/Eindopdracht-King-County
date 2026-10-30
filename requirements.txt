@@ -1,6 +1,8 @@
 pandas
 numpy
 scipy
+statsmodels
 plotly
 streamlit
+requests
 ipykernel
