@@ -1,8 +1,6 @@
 pandas
 numpy
+scipy
 plotly
 streamlit
 ipykernel
-# alleen als je kaarten of coordinaten gebruikt:
-# geopandas
-# scipy

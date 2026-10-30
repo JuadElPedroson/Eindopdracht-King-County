@@ -1,12 +1,26 @@
 # Nieuwe kolommen, berekeningen en modellen.
+import numpy as np
 import pandas as pd
+
+M2_PER_SQFT = 0.092903
+
+GRENZEN = [0, 250, 500, 1000, 2000, 5000, np.inf]
+NAMEN = ["0-250 m", "250-500 m", "500 m-1 km", "1-2 km", "2-5 km", "meer dan 5 km"]
 
 
 def maak_kolommen(df):
-    # voorbeeld: df["prijs_per_m2"] = df["price"] / df["sqft_living"]
+    df = df.copy()
+    # de data staat in vierkante voet, wij rekenen in vierkante meter
+    df["m2"] = df["sqft_living"] * M2_PER_SQFT
+    df["prijs_per_m2"] = df["price"] / df["m2"]
+    df["afstandsgroep"] = pd.cut(df["afstand_water"], bins=GRENZEN, labels=NAMEN, include_lowest=True)
     return df
 
 
-def groepeer(df, kolom):
-    # voorbeeld: return df.groupby(kolom)["waarde"].mean().reset_index()
-    pass
+def mediaan_per_groep(df):
+    # eerste blik: prijs per m2 per afstandsgroep
+    # (uit een csv komt de groep terug als tekst, dit zet de volgorde weer goed)
+    df = df.copy()
+    df["afstandsgroep"] = pd.Categorical(df["afstandsgroep"], categories=NAMEN, ordered=True)
+    uit = df.groupby("afstandsgroep", observed=True)["prijs_per_m2"].agg(["size", "median"])
+    return uit.round(0).reset_index()
