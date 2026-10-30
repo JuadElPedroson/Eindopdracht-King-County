@@ -1,0 +1,15 @@
+onderdeel,stap,aantal
+huizen,begin,21613
+huizen,"weg: geen prijs, oppervlak of plek",0
+huizen,weg: meer dan 15 slaapkamers (typefout),1
+huizen,weg: geen slaapkamer of badkamer,16
+huizen,weg: zelfde huis vaker verkocht (oudste verkoop weg),177
+huizen,over,21419
+water,objecten_ruw,6472
+water,punten_ruw,246467
+water,objecten_na,1100
+water,punten_na,133435
+groen,objecten_ruw,3302
+groen,punten_ruw,70761
+groen,objecten_na,1480
+groen,punten_na,48162

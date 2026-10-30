@@ -12,12 +12,17 @@ def laad_huizen():
     return pd.read_csv(RAW + "kc_house_data.csv")
 
 
-def laad_water_json():
-    # Het bestand dat src/geo.py ophaalt bij OpenStreetMap
-    with open(RAW + "water_osm.json") as f:
+def laad_json(pad):
+    # De bestanden die src/geo.py ophaalt bij OpenStreetMap (water en groen)
+    with open(pad) as f:
         return json.load(f)
 
 
 def laad_schoon():
     # Het eindresultaat van src/bouw_data.py: huizen met afstand tot water
     return pd.read_csv(PROCESSED + "huizen_met_afstand.csv")
+
+
+def laad_log():
+    # Wat er tijdens het opschonen is weggehaald (gemaakt door src/bouw_data.py)
+    return pd.read_csv(PROCESSED + "opschonen_log.csv")

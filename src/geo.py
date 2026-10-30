@@ -1,6 +1,5 @@
-# Geo-stappen: water ophalen, eerst filteren, dan afstand uitrekenen.
-# Het water komt uit OpenStreetMap (Overpass API).
-import json
+# Geo-stappen: water en groen ophalen, eerst filteren, dan afstand uitrekenen.
+# Alles komt uit OpenStreetMap (Overpass API).
 import urllib.parse
 import urllib.request
 
@@ -15,6 +14,12 @@ LAT0 = 47.5
 LON0 = -122.0
 METER_PER_GRAAD_LAT = 111000
 METER_PER_GRAAD_LON = 111000 * np.cos(np.radians(LAT0))
+
+# Wat we ophalen: per laag een lijst met OpenStreetMap-labels (sleutel, waarde).
+WATER = [("natural", "water"), ("natural", "coastline")]
+GROEN = [("leisure", "park")]
+# Bos kan ook, maar dat zijn enorme vlakken en een veel groter bestand:
+# GROEN = [("leisure", "park"), ("landuse", "forest")]
 
 
 def maak_grens(huizen, marge=0.05):
@@ -34,17 +39,14 @@ def naar_meters(lat, lon):
     return x, y
 
 
-def haal_water_op(grens, pad="data/raw/water_osm.json"):
-    # Haalt meren, rivieren en kustlijn op. Dit kan een paar minuten duren.
+def haal_op(grens, labels, pad):
+    # Haalt de objecten met deze labels op en slaat ze op. Kan een paar minuten duren.
     zuid, west, noord, oost = grens
     vak = f"({zuid},{west},{noord},{oost})"
-    vraag = (
-        "[out:json][timeout:180];("
-        f'way["natural"="water"]{vak};'
-        f'way["natural"="coastline"]{vak};'
-        f'relation["natural"="water"]{vak};'
-        ");out geom;"
-    )
+    delen = ""
+    for sleutel, waarde in labels:
+        delen += f'way["{sleutel}"="{waarde}"]{vak};relation["{sleutel}"="{waarde}"]{vak};'
+    vraag = f"[out:json][timeout:180];({delen});out geom;"
     verzoek = urllib.request.Request(
         OVERPASS,
         data=urllib.parse.urlencode({"data": vraag}).encode(),
@@ -56,9 +58,9 @@ def haal_water_op(grens, pad="data/raw/water_osm.json"):
         f.write(tekst)
 
 
-def maak_water_punten(data, grens, min_grootte=200, marge=0.1):
+def maak_punten(data, grens, naam, min_grootte=200, marge=0.1):
     # Eerst filteren, dan rekenen: van de ruwe OpenStreetMap-data
-    # blijft een tabel met punten langs de rand van het water over.
+    # blijft een tabel met punten langs de rand van de objecten over.
     zuid, west, noord, oost = grens
     rijen = []
     for element in data["elements"]:
@@ -68,44 +70,51 @@ def maak_water_punten(data, grens, min_grootte=200, marge=0.1):
         elif element["type"] == "relation":
             for lid in element.get("members", []):
                 lijnen.append(lid.get("geometry"))
-        naam = element["type"] + str(element["id"])
-        soort = "kust" if element.get("tags", {}).get("natural") == "coastline" else "water"
+        object_naam = element["type"] + str(element["id"])
+        soort = "kust" if element.get("tags", {}).get("natural") == "coastline" else naam
         for lijn in lijnen:
             for punt in lijn or []:
                 # soms is een punt leeg (een gat), die slaan we over
                 if punt and "lat" in punt and "lon" in punt:
-                    rijen.append((naam, soort, punt["lat"], punt["lon"]))
+                    rijen.append((object_naam, soort, punt["lat"], punt["lon"]))
 
-    water = pd.DataFrame(rijen, columns=["object", "soort", "lat", "lon"])
-    tel = {"objecten_ruw": water["object"].nunique(), "punten_ruw": len(water)}
+    punten = pd.DataFrame(rijen, columns=["object", "soort", "lat", "lon"])
+    tel = {"objecten_ruw": punten["object"].nunique(), "punten_ruw": len(punten)}
 
     # alleen punten in en vlak om het gebied van de huizen
-    water = water[
-        water["lat"].between(zuid - marge, noord + marge)
-        & water["lon"].between(west - marge, oost + marge)
+    punten = punten[
+        punten["lat"].between(zuid - marge, noord + marge)
+        & punten["lon"].between(west - marge, oost + marge)
     ]
-    water = water.drop_duplicates(subset=["object", "lat", "lon"]).copy()
+    punten = punten.drop_duplicates(subset=["object", "lat", "lon"]).copy()
 
     # naar meters, dan kunnen we de grootte en afstand uitrekenen
-    water["x"], water["y"] = naar_meters(water["lat"], water["lon"])
+    punten["x"], punten["y"] = naar_meters(punten["lat"], punten["lon"])
 
-    # kleine vijvers en zwembaden weg. De kustlijn laten we altijd staan,
-    # want die staat in stukjes in de data en elk stukje kan klein zijn.
-    groep = water.groupby("object")
+    # kleine objecten weg (vijvers, zwembaden, speeltuintjes). De kustlijn laten we
+    # altijd staan, want die staat in stukjes in de data en elk stukje kan klein zijn.
+    groep = punten.groupby("object")
     breedte = groep["x"].transform("max") - groep["x"].transform("min")
     hoogte = groep["y"].transform("max") - groep["y"].transform("min")
     groot = (breedte >= min_grootte) | (hoogte >= min_grootte)
-    water = water[groot | (water["soort"] == "kust")].reset_index(drop=True)
+    punten = punten[groot | (punten["soort"] == "kust")].reset_index(drop=True)
 
-    tel["objecten_na"] = water["object"].nunique()
-    tel["punten_na"] = len(water)
-    return water, tel
+    tel["objecten_na"] = punten["object"].nunique()
+    tel["punten_na"] = len(punten)
+    return punten, tel
 
 
-def afstand_tot(huizen, water):
-    # Per huis de afstand (in meter) tot het dichtstbijzijnde waterpunt.
-    boom = cKDTree(np.column_stack([water["x"], water["y"]]))
+def afstand_tot(huizen, punten):
+    # Per huis de afstand (in meter) tot het dichtstbijzijnde punt.
+    boom = cKDTree(np.column_stack([punten["x"], punten["y"]]))
     x, y = naar_meters(huizen["lat"], huizen["long"])
     afstand, plek = boom.query(np.column_stack([x, y]))
-    soort = water["soort"].to_numpy()[plek]
+    soort = punten["soort"].to_numpy()[plek]
     return afstand, soort
+
+
+def afstand_tot_punt(huizen, lat, lon):
+    # Afstand (in meter) van elk huis tot een vast punt, bijvoorbeeld het centrum.
+    x, y = naar_meters(huizen["lat"], huizen["long"])
+    px, py = naar_meters(lat, lon)
+    return np.sqrt((x - px) ** 2 + (y - py) ** 2)
