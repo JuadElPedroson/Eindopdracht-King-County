@@ -1,6 +1,6 @@
 # Data
 
-- `raw/` de originele bestanden. Niet aanpassen en niet op GitHub (te groot).
+- `raw/` de originele bestanden. Niet aanpassen. Niet op GitHub (te groot), maar wel in de zip die ik heb ingeleverd.
 - `processed/` schone, kleine bestanden. Die mogen wel mee naar GitHub, zodat het dashboard draait.
 
 ## Wat moet in raw/ staan?

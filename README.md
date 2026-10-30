@@ -29,8 +29,17 @@ Water en groen (OpenStreetMap): eerst filteren, dan rekenen.
 - Groen: 70.761 punten in 3.302 objecten, na filteren 48.162 punten in 1.480 objecten (kleine speeltuintjes weg).
 - Per huis reken ik de afstand tot het dichtstbijzijnde punt uit, in meters.
 
+## Wat zit waar (inleveren)
+- Code: `Home.py`, `pages/` en `src/`
+- Ophaalscript: `src/geo.py` (functie `haal_op`, haalt water en groen op met requests) en `src/bouw_data.py` (draait alle stappen)
+- Databestanden: `data/raw/` (origineel, zit alleen in de zip) en `data/processed/`
+- Data-verantwoording: `DATA_VERANTWOORDING.md`
+- Packages: `requirements.txt`
+
+Het dashboard leest alleen lokale bestanden en roept geen API aan.
+
 ## Mappen
-- `data/raw/` originele bestanden (blijft lokaal, staat niet op GitHub)
+- `data/raw/` originele bestanden (staat niet op GitHub, wel in de zip van Brightspace)
 - `data/processed/` schoon eindbestand en een lijst van wat er is opgeschoond
 - `notebooks/` verkennen en uitproberen
 - `src/` de code: laden, opschonen, geo, analyse, grafieken
