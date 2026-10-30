@@ -11,7 +11,7 @@ def schoon_huizen(df):
     # de datum is tekst zoals 20141013T000000
     df["date"] = pd.to_datetime(df["date"], format="%Y%m%dT%H%M%S")
 
-    # zonder prijs, oppervlak of plek kunnen we niets
+    # zonder prijs, oppervlak of plek kan ik niets
     n = len(df)
     df = df.dropna(subset=["price", "sqft_living", "lat", "long"])
     df = df[(df["price"] > 0) & (df["sqft_living"] > 0)]
@@ -27,7 +27,7 @@ def schoon_huizen(df):
     df = df[(df["bedrooms"] > 0) & (df["bathrooms"] > 0)]
     log.append(("geen slaapkamer of badkamer", n - len(df)))
 
-    # sommige huizen zijn twee keer verkocht, we houden de laatste verkoop
+    # sommige huizen zijn twee keer verkocht, ik hou de laatste verkoop
     n = len(df)
     df = df.sort_values("date").drop_duplicates(subset="id", keep="last")
     log.append(("zelfde huis vaker verkocht (oudste verkoop weg)", n - len(df)))

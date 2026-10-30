@@ -1,21 +1,19 @@
 # Geo-stappen: water en groen ophalen, eerst filteren, dan afstand uitrekenen.
 # Alles komt uit OpenStreetMap (Overpass API).
-import urllib.parse
-import urllib.request
-
 import numpy as np
 import pandas as pd
+import requests
 from scipy.spatial import cKDTree
 
 OVERPASS = "https://overpass-api.de/api/interpreter"
 
-# Midden van het gebied. Hiermee rekenen we graden om naar meters.
+# Midden van het gebied. Hiermee reken ik graden om naar meters.
 LAT0 = 47.5
 LON0 = -122.0
 METER_PER_GRAAD_LAT = 111000
 METER_PER_GRAAD_LON = 111000 * np.cos(np.radians(LAT0))
 
-# Wat we ophalen: per laag een lijst met OpenStreetMap-labels (sleutel, waarde).
+# Wat ik ophaal: per laag een lijst met OpenStreetMap-labels (sleutel, waarde).
 WATER = [("natural", "water"), ("natural", "coastline")]
 GROEN = [("leisure", "park")]
 # Bos kan ook, maar dat zijn enorme vlakken en een veel groter bestand:
@@ -47,15 +45,15 @@ def haal_op(grens, labels, pad):
     for sleutel, waarde in labels:
         delen += f'way["{sleutel}"="{waarde}"]{vak};relation["{sleutel}"="{waarde}"]{vak};'
     vraag = f"[out:json][timeout:180];({delen});out geom;"
-    verzoek = urllib.request.Request(
+    antwoord = requests.post(
         OVERPASS,
-        data=urllib.parse.urlencode({"data": vraag}).encode(),
+        data={"data": vraag},
         headers={"User-Agent": "studieproject-king-county"},
+        timeout=300,
     )
-    with urllib.request.urlopen(verzoek, timeout=300) as antwoord:
-        tekst = antwoord.read().decode("utf-8")
+    antwoord.raise_for_status()
     with open(pad, "w") as f:
-        f.write(tekst)
+        f.write(antwoord.text)
 
 
 def maak_punten(data, grens, naam, min_grootte=200, marge=0.1):
@@ -74,7 +72,7 @@ def maak_punten(data, grens, naam, min_grootte=200, marge=0.1):
         soort = "kust" if element.get("tags", {}).get("natural") == "coastline" else naam
         for lijn in lijnen:
             for punt in lijn or []:
-                # soms is een punt leeg (een gat), die slaan we over
+                # soms is een punt leeg (een gat), die sla ik over
                 if punt and "lat" in punt and "lon" in punt:
                     rijen.append((object_naam, soort, punt["lat"], punt["lon"]))
 
@@ -88,10 +86,10 @@ def maak_punten(data, grens, naam, min_grootte=200, marge=0.1):
     ]
     punten = punten.drop_duplicates(subset=["object", "lat", "lon"]).copy()
 
-    # naar meters, dan kunnen we de grootte en afstand uitrekenen
+    # naar meters, dan kan ik de grootte en afstand uitrekenen
     punten["x"], punten["y"] = naar_meters(punten["lat"], punten["lon"])
 
-    # kleine objecten weg (vijvers, zwembaden, speeltuintjes). De kustlijn laten we
+    # kleine objecten weg (vijvers, zwembaden, speeltuintjes). De kustlijn laat ik
     # altijd staan, want die staat in stukjes in de data en elk stukje kan klein zijn.
     groep = punten.groupby("object")
     breedte = groep["x"].transform("max") - groep["x"].transform("min")
